@@ -43,7 +43,7 @@ private:
     KnownPluginList activePluginList;
     KnownPluginList::SortMethod pluginSortMethod;
     PopupMenu menu;
-    ScopedPointer<PluginDirectoryScanner> scanner;
+    std::unique_ptr<PluginDirectoryScanner> scanner;
     bool menuIconLeftClicked;
     AudioProcessorGraph graph;
     AudioProcessorPlayer player;
@@ -54,7 +54,7 @@ private:
 	#endif
 
 	class PluginListWindow;
-	ScopedPointer<PluginListWindow> pluginListWindow;
+	std::unique_ptr<PluginListWindow> pluginListWindow;
 };
 
 #endif /* IconMenu_hpp */

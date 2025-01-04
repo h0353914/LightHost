@@ -83,7 +83,7 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
     activePluginList.addChangeListener(this);
 	setIcon();
 	setIconTooltip(JUCEApplication::getInstance()->getApplicationName());
-};
+}
 
 IconMenu::~IconMenu()
 {
@@ -501,7 +501,7 @@ void IconMenu::showAudioSettings()
 void IconMenu::reloadPlugins()
 {
 	if (pluginListWindow == nullptr)
-		pluginListWindow = new PluginListWindow(*this, formatManager);
+		pluginListWindow.reset (new PluginListWindow(*this, formatManager));
 	pluginListWindow->toFront(true);
 }
 

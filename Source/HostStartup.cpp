@@ -20,12 +20,12 @@ public:
 
         checkArguments(&options);
 
-        appProperties = new ApplicationProperties();
+        appProperties.reset (new ApplicationProperties());
         appProperties->setStorageParameters (options);
 
         LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
 
-        mainWindow = new IconMenu();
+        mainWindow.reset (new IconMenu());
 		#if JUCE_MAC
 			Process::setDockIconVisible(false);
 		#endif
@@ -51,11 +51,11 @@ public:
     }
 
     ApplicationCommandManager commandManager;
-    ScopedPointer<ApplicationProperties> appProperties;
+    std::unique_ptr<ApplicationProperties> appProperties;
     LookAndFeel_V3 lookAndFeel;
 
 private:
-    ScopedPointer<IconMenu> mainWindow;
+    std::unique_ptr<IconMenu> mainWindow;
 
     StringArray getParameter(String lookFor) {
         StringArray parameters = getCommandLineParameterArray();
