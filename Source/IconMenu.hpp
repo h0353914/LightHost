@@ -42,6 +42,7 @@ private:
     AudioDeviceManager deviceManager;
     AudioPluginFormatManager formatManager;
     KnownPluginList knownPluginList;
+    Array<PluginDescription> pluginMenuTypes;
     KnownPluginList activePluginList;
     KnownPluginList::SortMethod pluginSortMethod;
     PopupMenu menu;

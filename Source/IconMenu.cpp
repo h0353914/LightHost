@@ -16,6 +16,11 @@
 #include "Windows.h"
 #endif
 
+namespace
+{
+constexpr int languageMenuItemBase = 2000000000;
+}
+
 class IconMenu::PluginListWindow : public DocumentWindow
 {
 public:
@@ -269,12 +274,13 @@ void IconMenu::timerCallback()
         menu.addSeparator();
 		menu.addSectionHeader(LanguageManager::getInstance().getText("availablePlugins"));
         // All plugins
-        knownPluginList.addToMenu(menu, pluginSortMethod);
+        pluginMenuTypes = knownPluginList.getTypes();
+        KnownPluginList::addToMenu(menu, pluginMenuTypes, pluginSortMethod);
 
         // Language selection - Dynamically generated from available languages
         menu.addSeparator();
         PopupMenu languageMenu;
-        int languageMenuItemId = 9000000;  // Keep language IDs far from plugin/control IDs.
+        int languageMenuItemId = languageMenuItemBase;
         auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
         
         for (const auto& lang : availableLanguages)
@@ -349,10 +355,10 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
     if (id > 2)
     {
         // Language selection - Handle dynamic language menu items.
-        if (id >= 9000000)
+        if (id >= languageMenuItemBase)
         {
             auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
-            int languageIndex = id - 9000000;
+            int languageIndex = id - languageMenuItemBase;
             
             if (languageIndex >= 0 && languageIndex < availableLanguages.size())
             {
@@ -399,9 +405,10 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
 			im->loadActivePlugins();
         }
         // Add plugin
-        else if (im->knownPluginList.getIndexChosenByMenu(id) > -1)
+        else if (const auto pluginIndex = KnownPluginList::getIndexChosenByMenu(im->pluginMenuTypes, id);
+                 pluginIndex > -1)
         {
-			PluginDescription plugin = *im->knownPluginList.getType(im->knownPluginList.getIndexChosenByMenu(id));
+			PluginDescription plugin = im->pluginMenuTypes.getReference(pluginIndex);
 			String key = getKey("order", plugin);
 			int t = static_cast<int>(time(0));
 			getAppProperties().getUserSettings()->setValue(key, t);
