@@ -84,27 +84,26 @@ private:
 class ProgramAudioProcessorEditor : public AudioProcessorEditor
 {
 public:
-    ProgramAudioProcessorEditor (AudioProcessor* const p)
+    ProgramAudioProcessorEditor (AudioProcessor& p)
         : AudioProcessorEditor (p)
     {
-        jassert (p != nullptr);
         setOpaque (true);
 
         addAndMakeVisible (panel);
 
         Array<PropertyComponent*> programs;
 
-        const int numPrograms = p->getNumPrograms();
+        const int numPrograms = p.getNumPrograms();
         int totalHeight = 0;
 
         for (int i = 0; i < numPrograms; ++i)
         {
-            String name (p->getProgramName (i).trim());
+            String name (p.getProgramName (i).trim());
 
             if (name.isEmpty())
                 name = "Unnamed";
 
-            ProcessorProgramPropertyComp* const pc = new ProcessorProgramPropertyComp (name, *p, i);
+            ProcessorProgramPropertyComp* const pc = new ProcessorProgramPropertyComp (name, p, i);
             programs.add (pc);
             totalHeight += pc->getPreferredHeight();
         }
@@ -155,9 +154,9 @@ PluginWindow* PluginWindow::getWindowFor (AudioProcessorGraph::Node* const node,
     if (ui == nullptr)
     {
         if (type == Generic || type == Parameters)
-            ui = new GenericAudioProcessorEditor (processor);
+            ui = new GenericAudioProcessorEditor (*processor);
         else if (type == Programs)
-            ui = new ProgramAudioProcessorEditor (processor);
+            ui = new ProgramAudioProcessorEditor (*processor);
     }
 
     if (ui != nullptr)

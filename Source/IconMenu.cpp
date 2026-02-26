@@ -63,7 +63,8 @@ private:
 IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(3000000), INDEX_MOVE_UP(4000000), INDEX_MOVE_DOWN(5000000)
 {
     // Initiialization
-    formatManager.addDefaultFormats();
+    addDefaultFormatsToManager(formatManager);
+    
     // Audio device
     std::unique_ptr<XmlElement> savedAudioState (getAppProperties().getUserSettings()->getXmlValue("audioDeviceState"));
     deviceManager.initialise(256, 256, savedAudioState.get(), true);
@@ -146,7 +147,7 @@ void IconMenu::loadActivePlugins()
         String savedPluginState = getAppProperties().getUserSettings()->getValue(pluginUid);
         MemoryBlock savedPluginBinary;
         savedPluginBinary.fromBase64Encoding(savedPluginState);
-        instance->setStateInformation(savedPluginBinary.getData(), savedPluginBinary.getSize());
+        instance->setStateInformation(savedPluginBinary.getData(), static_cast<int>(savedPluginBinary.getSize()));
         graph.addNode(std::move(instance), AudioProcessorGraph::NodeID(i)); // TODO https://stackoverflow.com/a/17473958
 		String key = getKey("bypass", plugin);
 		bool bypass = getAppProperties().getUserSettings()->getBoolValue(key, false);
@@ -179,9 +180,8 @@ PluginDescription IconMenu::getNextPluginOlderThanTime(int &time)
 	int timeStatic = time;
 	PluginDescription closest;
 	int diff = INT_MAX;
-	for (int i = 0; i < activePluginList.getNumTypes(); i++)
+	for (const auto& plugin : activePluginList.getTypes())
 	{
-		PluginDescription plugin = *activePluginList.getType(i);
 		String key = getKey("order", plugin);
 		String pluginTimeString = getAppProperties().getUserSettings()->getValue(key);
 		int pluginTime = atoi(pluginTimeString.toStdString().c_str());
@@ -337,9 +337,9 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
 			std::vector<PluginDescription> timeSorted = im->getTimeSortedList();
 			String key = getKey("order", timeSorted[index]);
 			PluginDescription typeToRemove;
-			for (int i = 0; im->activePluginList.getNumTypes(); i++)
+			for (const auto& desc : im->activePluginList.getTypes())
 			{
-				typeToRemove = *im->activePluginList.getType(i);
+				typeToRemove = desc;
 				if (key.equalsIgnoreCase(getKey("order", typeToRemove)))
 				{
 					break;
@@ -364,7 +364,7 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
         {
 			PluginDescription plugin = *im->knownPluginList.getType(im->knownPluginList.getIndexChosenByMenu(id));
 			String key = getKey("order", plugin);
-			int t = time(0);
+			int t = static_cast<int>(time(0));
 			getAppProperties().getUserSettings()->setValue(key, t);
 			getAppProperties().saveIfNeeded();
             im->activePluginList.addType(plugin);
