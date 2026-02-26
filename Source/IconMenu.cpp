@@ -8,6 +8,7 @@
 
 #include "JuceHeader.h"
 #include "IconMenu.hpp"
+#include "LanguageManager.hpp"
 #include "PluginWindow.h"
 #include <ctime>
 #include <limits.h>
@@ -19,7 +20,7 @@ class IconMenu::PluginListWindow : public DocumentWindow
 {
 public:
 	PluginListWindow(IconMenu& owner_, AudioPluginFormatManager& pluginFormatManager)
-		: DocumentWindow("Available Plugins", Colours::white,
+		: DocumentWindow(LanguageManager::getInstance().getText("availablePlugins"), Colours::white,
 			DocumentWindow::minimiseButton | DocumentWindow::closeButton),
 		owner(owner_)
 	{
@@ -65,6 +66,10 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
     // Initiialization
     addDefaultFormatsToManager(formatManager);
     
+    // Load saved language preference and apply it
+    String savedLanguageId = getAppProperties().getUserSettings()->getValue("language", "English");
+    LanguageManager::getInstance().setLanguageById(savedLanguageId);
+    
     // Audio device
     std::unique_ptr<XmlElement> savedAudioState (getAppProperties().getUserSettings()->getXmlValue("audioDeviceState"));
     deviceManager.initialise(256, 256, savedAudioState.get(), true);
@@ -83,7 +88,7 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
     loadActivePlugins();
     activePluginList.addChangeListener(this);
 	setIcon();
-	setIconTooltip(JUCEApplication::getInstance()->getApplicationName());
+	setIconTooltip(LanguageManager::getInstance().getText("appName"));
 }
 
 IconMenu::~IconMenu()
@@ -237,42 +242,57 @@ void IconMenu::timerCallback()
 {
     stopTimer();
     menu.clear();
-    menu.addSectionHeader(JUCEApplication::getInstance()->getApplicationName());
+    menu.addSectionHeader(LanguageManager::getInstance().getText("appName"));
     if (menuIconLeftClicked) {
-        menu.addItem(1, "Preferences");
-        menu.addItem(2, "Edit Plugins");
+        menu.addItem(1, LanguageManager::getInstance().getText("preferences"));
+        menu.addItem(2, LanguageManager::getInstance().getText("editPlugins"));
         menu.addSeparator();
-		menu.addSectionHeader("Active Plugins");
+		menu.addSectionHeader(LanguageManager::getInstance().getText("activePlugins"));
         // Active plugins
 		int time = 0;
         for (int i = 0; i < activePluginList.getNumTypes(); i++)
         {
             PopupMenu options;
-            options.addItem(INDEX_EDIT + i, "Edit");
+            options.addItem(INDEX_EDIT + i, LanguageManager::getInstance().getText("edit"));
 			std::vector<PluginDescription> timeSorted = getTimeSortedList();
 			String key = getKey("bypass", timeSorted[i]);
 			bool bypass = getAppProperties().getUserSettings()->getBoolValue(key);
-			options.addItem(INDEX_BYPASS + i, "Bypass", true, bypass);
+			options.addItem(INDEX_BYPASS + i, LanguageManager::getInstance().getText("bypass"), true, bypass);
 			options.addSeparator();
-			options.addItem(INDEX_MOVE_UP + i, "Move Up", i > 0);
-			options.addItem(INDEX_MOVE_DOWN + i, "Move Down", i < timeSorted.size() - 1);
+			options.addItem(INDEX_MOVE_UP + i, LanguageManager::getInstance().getText("moveUp"), i > 0);
+			options.addItem(INDEX_MOVE_DOWN + i, LanguageManager::getInstance().getText("moveDown"), i < timeSorted.size() - 1);
 			options.addSeparator();
-            options.addItem(INDEX_DELETE + i, "Delete");
+            options.addItem(INDEX_DELETE + i, LanguageManager::getInstance().getText("delete"));
 			PluginDescription plugin = getNextPluginOlderThanTime(time);
             menu.addSubMenu(plugin.name, options);
         }
         menu.addSeparator();
-		menu.addSectionHeader("Avaliable Plugins");
+		menu.addSectionHeader(LanguageManager::getInstance().getText("availablePlugins"));
         // All plugins
         knownPluginList.addToMenu(menu, pluginSortMethod);
+
+        // Language selection - Dynamically generated from available languages
+        menu.addSeparator();
+        PopupMenu languageMenu;
+        int languageMenuItemId = 9000000;  // Keep language IDs far from plugin/control IDs.
+        auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
+        
+        for (const auto& lang : availableLanguages)
+        {
+            bool isCurrent = (lang.id == LanguageManager::getInstance().getCurrentLanguageId());
+            languageMenu.addItem(languageMenuItemId, lang.displayName, true, isCurrent);
+            languageMenuItemId++;
+        }
+        
+        menu.addSubMenu(LanguageManager::getInstance().getText("languageMenuLabel"), languageMenu);
     }
     else
     {
-        menu.addItem(1, "Quit");
+        menu.addItem(1, LanguageManager::getInstance().getText("quit"));
 		menu.addSeparator();
-		menu.addItem(2, "Delete Plugin States");
+		menu.addItem(2, LanguageManager::getInstance().getText("deletePluginStates"));
 		#if !JUCE_MAC
-			menu.addItem(3, "Invert Icon Color");
+			menu.addItem(3, LanguageManager::getInstance().getText("invertIconColor"));
 		#endif
     }
 	#if JUCE_MAC || JUCE_LINUX
@@ -328,6 +348,25 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
     // Plugins
     if (id > 2)
     {
+        // Language selection - Handle dynamic language menu items.
+        if (id >= 9000000)
+        {
+            auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
+            int languageIndex = id - 9000000;
+            
+            if (languageIndex >= 0 && languageIndex < availableLanguages.size())
+            {
+                const auto& selectedLanguage = availableLanguages[languageIndex];
+                LanguageManager::getInstance().setLanguageById(selectedLanguage.id);
+
+                // Save language preference
+                getAppProperties().getUserSettings()->setValue("language", selectedLanguage.id);
+                getAppProperties().saveIfNeeded();
+                im->startTimer(50);
+                return;
+            }
+        }
+        
         // Delete plugin
         if (id >= im->INDEX_DELETE && id < im->INDEX_DELETE + 1000000)
         {
@@ -483,7 +522,7 @@ void IconMenu::showAudioSettings()
     
     DialogWindow::LaunchOptions o;
     o.content.setNonOwned(&audioSettingsComp);
-    o.dialogTitle                   = "Audio Settings";
+    o.dialogTitle                   = LanguageManager::getInstance().getText("audioSettings");
     o.componentToCentreAround       = this;
     o.dialogBackgroundColour        = Colour::fromRGB(236, 236, 236);
     o.escapeKeyTriggersCloseButton  = true;

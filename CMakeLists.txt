@@ -54,6 +54,8 @@ set(SourceFiles
     Source/HostStartup.cpp
     Source/IconMenu.cpp
     Source/IconMenu.hpp
+    Source/LanguageManager.cpp
+    Source/LanguageManager.hpp
     Source/PluginWindow.cpp
     Source/PluginWindow.h)
 target_sources("${PROJECT_NAME}" PRIVATE ${SourceFiles})
@@ -69,7 +71,11 @@ juce_add_binary_data(Resources
     SOURCES
     Resources/icon.png
     Resources/menu_icon_white.png
-    Resources/menu_icon.png)
+    Resources/menu_icon.png
+    Resources/Languages/English.json
+    Resources/Languages/TraditionalChinese.json
+    Resources/Languages/SimplifiedChinese.json
+    Resources/Languages/Japanese.json)
 
 # Required for Linux happiness:
 # See https://forum.juce.com/t/loading-pytorch-model-using-binarydata/39997/2

@@ -9,6 +9,8 @@
 #ifndef IconMenu_hpp
 #define IconMenu_hpp
 
+#include "LanguageManager.hpp"
+
 ApplicationProperties& getAppProperties();
 
 class IconMenu : public SystemTrayIconComponent, private Timer, public ChangeListener
