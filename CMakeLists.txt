@@ -63,7 +63,10 @@ set(SourceFiles
     Source/LanguageManager.cpp
     Source/LanguageManager.hpp
     Source/PluginWindow.cpp
-    Source/PluginWindow.h)
+    Source/PluginWindow.h
+    Source/VoicemeeterRemote.h
+    Source/VoicemeeterAudioDevice.h
+    Source/VoicemeeterAudioDevice.cpp)
 target_sources("${PROJECT_NAME}" PRIVATE ${SourceFiles})
 
 # No, we don't want our source buried in extra nested folders

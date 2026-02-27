@@ -14,11 +14,35 @@
 #include <limits.h>
 #if JUCE_WINDOWS
 #include "Windows.h"
+#include "VoicemeeterAudioDevice.h"  // Windows 專用：Voicemeeter 音頻設備支援
+#endif
+
+// ==================== Windows 平台特定實現 ====================
+
+#if JUCE_WINDOWS
+/**
+ * LightHostAudioDeviceManager::createAudioDeviceTypes() 實現
+ * 
+ * 建立並註冊所有可用的音頻設備類型
+ * 包括標準系統音頻設備和 Voicemeeter 虛擬設備
+ * 
+ * 步驟：
+ * 1. 調用基類方法註冊標準設備
+ * 2. 添加 Voicemeeter 自訂設備類型
+ */
+void LightHostAudioDeviceManager::createAudioDeviceTypes (OwnedArray<AudioIODeviceType>& types)
+{
+    // 首先調用基類方法添加標準 JUCE 設備
+    AudioDeviceManager::createAudioDeviceTypes (types);
+    
+    // 然後添加 Voicemeeter 設備
+    types.add (new VoicemeeterAudioIODeviceType());
+}
 #endif
 
 namespace
 {
-constexpr int languageMenuItemBase = 2000000000;
+constexpr int languageMenuItemBase = 2000000000;  // 語言菜單項 ID 基數
 }
 
 class IconMenu::PluginListWindow : public DocumentWindow
