@@ -62,9 +62,6 @@ public:
 
 	const int INDEX_EDIT, INDEX_BYPASS, INDEX_DELETE, INDEX_MOVE_UP, INDEX_MOVE_DOWN;
 private:
-	#if JUCE_MAC
-    std::string exec(const char* cmd);
-	#endif
     void timerCallback();
     void reloadPlugins();
     void showAudioSettings();
@@ -78,16 +75,7 @@ private:
 
     // ==================== 音頻處理成員 ====================
     
-    /**
-     * 條件編譯：Windows vs 其他平台
-     * Windows 使用自訂的 LightHostAudioDeviceManager
-     * 其他平台使用標準的 JUCE AudioDeviceManager
-     */
-    #if JUCE_WINDOWS
     LightHostAudioDeviceManager deviceManager;  // Windows 自訂設備管理器
-    #else
-    AudioDeviceManager deviceManager;  // 其他平台標準設備管理器
-    #endif
     
     AudioPluginFormatManager formatManager;
     KnownPluginList knownPluginList;
@@ -96,14 +84,10 @@ private:
     KnownPluginList::SortMethod pluginSortMethod;
     PopupMenu menu;
     std::unique_ptr<PluginDirectoryScanner> scanner;
-    bool menuIconLeftClicked;
     AudioProcessorGraph graph;
     AudioProcessorPlayer player;
     AudioProcessorGraph::Node *inputNode;
     AudioProcessorGraph::Node *outputNode;
-	#if JUCE_WINDOWS
-	int x, y;
-	#endif
 
 	class PluginListWindow;
 	std::unique_ptr<PluginListWindow> pluginListWindow;

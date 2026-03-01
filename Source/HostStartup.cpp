@@ -17,7 +17,6 @@ public:
         PropertiesFile::Options options;
         options.applicationName     = getApplicationName();
         options.filenameSuffix      = "settings";
-        options.osxLibrarySubFolder = "Preferences";
 
         checkArguments(&options);
 
@@ -27,9 +26,6 @@ public:
         LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
 
         mainWindow.reset (new IconMenu());
-		#if JUCE_MAC
-			Process::setDockIconVisible(false);
-		#endif
     }
 
     void shutdown() override
