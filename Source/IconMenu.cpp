@@ -10,6 +10,7 @@
 #include "IconMenu.hpp"
 #include "LanguageManager.hpp"
 #include "PluginWindow.h"
+#include "MainWindowContent.h"
 #include <ctime>
 #include <limits.h>
 #if JUCE_WINDOWS
@@ -80,9 +81,46 @@ public:
 	void closeButtonPressed()
 	{
         owner.removePluginsLackingInputOutput();
+		owner.pluginListWindow = nullptr;
+	}
 
 private:
 	IconMenu& owner;
+};
+
+// ==================== Main Window ====================
+
+class IconMenu::MainWindow : public DocumentWindow
+{
+public:
+    MainWindow(IconMenu& owner_)
+        : DocumentWindow(LanguageManager::getInstance().getText("appName"),
+                         Colour::fromRGB(26, 26, 26),
+                         DocumentWindow::minimiseButton | DocumentWindow::closeButton),
+          owner(owner_)
+    {
+        // Don't create a new one, use the persistent one owned by IconMenu
+        auto* content = owner.mainContent.get();
+        content->setSize(900, 560);
+        
+        // Pass ownership flag false so DocumentWindow doesn't delete it
+        setContentNonOwned(content, true);
+
+        setUsingNativeTitleBar(true);
+        setResizable(true, false);
+        setResizeLimits(600, 400, 4096, 4096);
+        centreWithSize(900, 560);
+        setVisible(true);
+    }
+
+    void closeButtonPressed() override
+    {
+        owner.mainWindow = nullptr;
+    }
+
+private:
+    IconMenu& owner;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
 };
 
 IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(3000000), INDEX_MOVE_UP(4000000), INDEX_MOVE_DOWN(5000000)
@@ -109,8 +147,32 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
     std::unique_ptr<XmlElement> savedPluginListActive(getAppProperties().getUserSettings()->getXmlValue("pluginListActive"));
     if (savedPluginListActive != nullptr)
         activePluginList.recreateFromXml(*savedPluginListActive);
+    // Setup the main content and bind the graph change callback for saving
+    mainContent = std::make_unique<MainWindowContent>(
+        deviceManager,
+        knownPluginList,
+        formatManager,
+        graph);
+    
+    mainContent->onManagePlugins = [this] { reloadPlugins(); };
+    mainContent->onGraphChanged  = [this]
+    {
+        if (auto xml = mainContent->saveState())
+        {
+            getAppProperties().getUserSettings()->setValue("nodeGraphState", xml.get());
+            getAppProperties().saveIfNeeded();
+        }
+    };
+
+    // Load saved graph state after setting up fixed I/O nodes
+    // The loadActivePlugins() call now just setups the I/O nodes in AudioProcessorGraph
     loadActivePlugins();
     activePluginList.addChangeListener(this);
+
+    std::unique_ptr<XmlElement> savedGraphState(getAppProperties().getUserSettings()->getXmlValue("nodeGraphState"));
+    if (savedGraphState != nullptr)
+        mainContent->loadState(*savedGraphState);
+
 	setIcon();
 	setIconTooltip(LanguageManager::getInstance().getText("appName"));
 }
@@ -118,6 +180,9 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
 IconMenu::~IconMenu()
 {
 	savePluginStates();
+    // clear window before tearing down device manager & graph
+    mainWindow.reset();
+    mainContent.reset(); 
 }
 
 void IconMenu::setIcon()
@@ -125,10 +190,10 @@ void IconMenu::setIcon()
 	// Set menu icon - Windows only
 	Image icon;
 	String defaultColor = "white";
-
+	
 	if (!getAppProperties().getUserSettings()->containsKey("icon"))
 		getAppProperties().getUserSettings()->setValue("icon", defaultColor);
-
+	
 	String color = getAppProperties().getUserSettings()->getValue("icon");
 	if (color.equalsIgnoreCase("white"))
 		icon = ImageFileFormat::loadFrom(BinaryData::menu_icon_white_png, BinaryData::menu_icon_white_pngSize);
@@ -139,58 +204,24 @@ void IconMenu::setIcon()
 
 void IconMenu::loadActivePlugins()
 {
-	const int INPUT = 1000000;
-	const int OUTPUT = INPUT + 1;
-	const int CHANNEL_ONE = 0;
-	const int CHANNEL_TWO = 1;
-	PluginWindow::closeAllCurrentlyOpenWindows();
+    const int INPUT  = 1000000;
+    const int OUTPUT = INPUT + 1;
+
+    PluginWindow::closeAllCurrentlyOpenWindows();
     graph.clear();
-	inputNode = graph.addNode(std::make_unique<AudioProcessorGraph::AudioGraphIOProcessor> (AudioProcessorGraph::AudioGraphIOProcessor::audioInputNode), AudioProcessorGraph::NodeID(INPUT));
-    outputNode = graph.addNode(std::make_unique<AudioProcessorGraph::AudioGraphIOProcessor> (AudioProcessorGraph::AudioGraphIOProcessor::audioOutputNode), AudioProcessorGraph::NodeID(OUTPUT));
-    if (activePluginList.getNumTypes() == 0)
-    {
-		graph.addConnection ({ { AudioProcessorGraph::NodeID(INPUT), CHANNEL_ONE }, { AudioProcessorGraph::NodeID(OUTPUT), CHANNEL_ONE } });
-		graph.addConnection ({ { AudioProcessorGraph::NodeID(INPUT), CHANNEL_TWO }, { AudioProcessorGraph::NodeID(OUTPUT), CHANNEL_TWO } });
-    }
-	int pluginTime = 0;
-	int lastId = 0;
-	bool hasInputConnected = false;
-	// NOTE: Node ids cannot begin at 0.
-    for (int i = 1; i <= activePluginList.getNumTypes(); i++)
-    {
-        PluginDescription plugin = getNextPluginOlderThanTime(pluginTime);
-        String errorMessage;
-        std::unique_ptr<AudioPluginInstance> instance = formatManager.createPluginInstance(plugin, graph.getSampleRate(), graph.getBlockSize(), errorMessage);
-		String pluginUid = getKey("state", plugin);
-        String savedPluginState = getAppProperties().getUserSettings()->getValue(pluginUid);
-        MemoryBlock savedPluginBinary;
-        savedPluginBinary.fromBase64Encoding(savedPluginState);
-        instance->setStateInformation(savedPluginBinary.getData(), static_cast<int>(savedPluginBinary.getSize()));
-        graph.addNode(std::move(instance), AudioProcessorGraph::NodeID(i)); // TODO https://stackoverflow.com/a/17473958
-		String key = getKey("bypass", plugin);
-		bool bypass = getAppProperties().getUserSettings()->getBoolValue(key, false);
-        // Input to plugin
-        if ((!hasInputConnected) && (!bypass))
-        {
-            graph.addConnection({ { AudioProcessorGraph::NodeID(INPUT), CHANNEL_ONE }, { AudioProcessorGraph::NodeID(i), CHANNEL_ONE } });
-            graph.addConnection({ { AudioProcessorGraph::NodeID(INPUT), CHANNEL_TWO }, { AudioProcessorGraph::NodeID(i), CHANNEL_TWO } });
-			hasInputConnected = true;
-        }
-        // Connect previous plugin to current
-        else if ((!bypass))
-        {
-            graph.addConnection({ { AudioProcessorGraph::NodeID(lastId), CHANNEL_ONE }, { AudioProcessorGraph::NodeID(i), CHANNEL_ONE } });
-            graph.addConnection({ { AudioProcessorGraph::NodeID(lastId), CHANNEL_TWO }, { AudioProcessorGraph::NodeID(i), CHANNEL_TWO } });
-        }
-		if (!bypass)
-		    lastId = i;
-    }
-	if (lastId > 0)
-	{
-		// Last active plugin to output
-		graph.addConnection({ { AudioProcessorGraph::NodeID(lastId), CHANNEL_ONE }, { AudioProcessorGraph::NodeID(OUTPUT), CHANNEL_ONE } });
-		graph.addConnection({ { AudioProcessorGraph::NodeID(lastId), CHANNEL_TWO }, { AudioProcessorGraph::NodeID(OUTPUT), CHANNEL_TWO } });
-	}
+
+    // Set up the graph's fixed I/O nodes.
+    // Audio routing is now driven by the NodeGraphCanvas UI.
+    inputNode  = graph.addNode(std::make_unique<AudioProcessorGraph::AudioGraphIOProcessor>(
+                     AudioProcessorGraph::AudioGraphIOProcessor::audioInputNode),
+                     AudioProcessorGraph::NodeID(INPUT));
+    outputNode = graph.addNode(std::make_unique<AudioProcessorGraph::AudioGraphIOProcessor>(
+                     AudioProcessorGraph::AudioGraphIOProcessor::audioOutputNode),
+                     AudioProcessorGraph::NodeID(OUTPUT));
+
+    // NOTE: Plugin loading and connection routing is now handled by
+    // the NodeGraphCanvas (MainWindowContent). Draw wires in the canvas
+    // to route audio: Input → Plugin → Output.
 }
 
 PluginDescription IconMenu::getNextPluginOlderThanTime(int &time)
@@ -241,7 +272,7 @@ void IconMenu::timerCallback()
     stopTimer();
     menu.clear();
     menu.addSectionHeader(LanguageManager::getInstance().getText("appName"));
-
+    
     // Edit Plugins - simple menu item
     menu.addItem(2, LanguageManager::getInstance().getText("editPlugins"));
 
@@ -249,35 +280,43 @@ void IconMenu::timerCallback()
     PopupMenu languageMenu;
     int languageMenuItemId = languageMenuItemBase;
     auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
-
+    
     for (const auto& lang : availableLanguages)
     {
         bool isCurrent = (lang.id == LanguageManager::getInstance().getCurrentLanguageId());
         languageMenu.addItem(languageMenuItemId, lang.displayName, true, isCurrent);
         languageMenuItemId++;
     }
-
+    
     menu.addSubMenu(LanguageManager::getInstance().getText("languageMenuLabel"), languageMenu);
 
     // Invert Icon Color
     menu.addItem(3, LanguageManager::getInstance().getText("invertIconColor"));
 
     menu.addSeparator();
-
+    
     // Quit
     menu.addItem(1, LanguageManager::getInstance().getText("quit"));
-
+    
 	menu.showMenuAsync(PopupMenu::Options().withMousePosition(), ModalCallbackFunction::forComponent(menuInvocationCallback, this));
 }
 
 void IconMenu::mouseDown(const MouseEvent& e)
 {
     // Only show menu on right-click
-    if (!e.mods.isLeftButtonDown())
+    if (e.mods.isRightButtonDown())
     {
         Process::makeForegroundProcess();
         startTimer(50);
     }
+}
+
+void IconMenu::mouseDoubleClick(const MouseEvent& /*e*/)
+{
+    if (mainWindow == nullptr)
+        mainWindow = std::make_unique<MainWindow>(*this);
+    else
+        mainWindow->toFront(true);
 }
 
 void IconMenu::menuInvocationCallback(int id, IconMenu* im)
@@ -288,13 +327,13 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
         im->savePluginStates();
         return JUCEApplication::getInstance()->quit();
     }
-
+    
     // ID 2: Edit Plugins (reload plugins)
     if (id == 2)
     {
         return im->reloadPlugins();
     }
-
+    
     // ID 3: Invert Icon Color
     if (id == 3)
     {
@@ -302,13 +341,13 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
         getAppProperties().getUserSettings()->setValue("icon", color.equalsIgnoreCase("black") ? "white" : "black");
         return im->setIcon();
     }
-
+    
     // Language selection - Handle dynamic language menu items
     if (id >= languageMenuItemBase)
     {
         auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
         int languageIndex = id - languageMenuItemBase;
-
+        
         if (languageIndex >= 0 && languageIndex < availableLanguages.size())
         {
             const auto& selectedLanguage = availableLanguages[languageIndex];
@@ -369,7 +408,26 @@ void IconMenu::savePluginStates()
 
 void IconMenu::showAudioSettings()
 {
-    AudioDeviceSelectorComponent audioSettingsComp (deviceManager, 0, 256, 0, 256, false, false, true, false);
+    // Check if current device is Voicemeeter
+    bool isVoicemeeter = false;
+    if (auto* d = deviceManager.getCurrentAudioDevice())
+    {
+        String deviceName = d->getName();
+        if (deviceName.containsIgnoreCase("Voicemeeter") || 
+            deviceName.containsIgnoreCase("VoiceMeeter"))
+        {
+            isVoicemeeter = true;
+        }
+    }
+
+    // Always use hideAdvancedOptionsWithButton=false to remove the button
+    // For Voicemeeter, we'll hide sample rate and buffer size by using 0 for max channels
+    // For others, show everything
+    int maxInputChannels = isVoicemeeter ? 0 : 256;
+    int maxOutputChannels = isVoicemeeter ? 0 : 256;
+    
+    AudioDeviceSelectorComponent audioSettingsComp(
+        deviceManager, 0, maxInputChannels, 0, maxOutputChannels, false, false, true, false);
     audioSettingsComp.setSize(500, 600);
     
     DialogWindow::LaunchOptions o;

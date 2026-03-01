@@ -62,6 +62,8 @@ set(SourceFiles
     Source/IconMenu.hpp
     Source/LanguageManager.cpp
     Source/LanguageManager.hpp
+    Source/MainWindowContent.h
+    Source/MainWindowContent.cpp
     Source/PluginWindow.cpp
     Source/PluginWindow.h
     Source/VoicemeeterRemote.h

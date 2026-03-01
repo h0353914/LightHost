@@ -10,6 +10,7 @@
 #define IconMenu_hpp
 
 #include "LanguageManager.hpp"
+class MainWindowContent;
 
 // ==================== Windows 平台特定類別 ====================
 #if JUCE_WINDOWS
@@ -56,6 +57,7 @@ public:
     IconMenu();
     ~IconMenu();
     void mouseDown(const MouseEvent&);
+    void mouseDoubleClick(const MouseEvent&);
     static void menuInvocationCallback(int id, IconMenu*);
     void changeListenerCallback(ChangeBroadcaster* changed);
 	static String getKey(String type, PluginDescription plugin);
@@ -91,6 +93,10 @@ private:
 
 	class PluginListWindow;
 	std::unique_ptr<PluginListWindow> pluginListWindow;
+
+	class MainWindow;
+	std::unique_ptr<MainWindow> mainWindow;
+	std::unique_ptr<MainWindowContent> mainContent;
 };
 
 #endif /* IconMenu_hpp */

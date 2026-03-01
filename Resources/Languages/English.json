@@ -53,5 +53,15 @@
   "scanInProcess": "In-process",
   "scanOutOfProcess": "Out-of-process",
   "doublePrecisionRendering": "Double Floating-Point Precision Rendering",
-  "autoScalePluginWindows": "Auto-Scale Plug-in Windows"
+  "autoScalePluginWindows": "Auto-Scale Plug-in Windows",
+  "inputPorts": "INPUT PORTS",
+  "outputPorts": "OUTPUT PORTS",
+  "doubleClickToAdd": "double-click to add",
+  "doubleClick": "double-click",
+  "doubleClickToAddPlugin": "Double-click to add a plugin",
+  "addManagePlugins": "Add / Manage Plugins...",
+  "cannotLoadPlugin": "Cannot load plugin",
+  "unknownError": "Unknown error",
+  "audioInput": "Audio Input",
+  "audioOutput": "Audio Output"
 }
