@@ -318,12 +318,12 @@ void IconMenu::timerCallback()
     }
     else
     {
-        menu.addItem(1, LanguageManager::getInstance().getText("quit"));
-		menu.addSeparator();
 		menu.addItem(2, LanguageManager::getInstance().getText("deletePluginStates"));
 		#if !JUCE_MAC
 			menu.addItem(3, LanguageManager::getInstance().getText("invertIconColor"));
 		#endif
+		menu.addSeparator();
+        menu.addItem(1, LanguageManager::getInstance().getText("quit"));
     }
 	#if JUCE_MAC || JUCE_LINUX
     menu.showMenuAsync(PopupMenu::Options().withTargetComponent(this), ModalCallbackFunction::forComponent(menuInvocationCallback, this));
