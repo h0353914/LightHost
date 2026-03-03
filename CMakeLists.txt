@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.15)
 
 # This is the name of your plugin
 # This cannot have spaces (but PRODUCT_NAME can)
-set(PROJECT_NAME "LightHost")
+set(PROJECT_NAME "VoicemeeterHost")
 
 # Read project version from env variable, allowing it to be provided by CI/CD workflow
 set(PROJECT_VERSION $ENV{PROJECT_VERSION})
@@ -39,7 +39,7 @@ add_subdirectory(JUCE)
 # Check the readme at `docs/CMake API.md` in the JUCE repo for full config
 # https://github.com/juce-framework/JUCE/blob/69795dc8e5/docs/CMake%20API.md
 juce_add_gui_app("${PROJECT_NAME}"
-    COMPANY_NAME LightHost
+    COMPANY_NAME VoicemeeterHost
     FORMATS Standalone # Valid formats: AAX Unity VST AU AUv3 Standalone
     ICON_BIG Resources/icon.png
     ICON_SMALL Resources/menu_icon.png
@@ -62,6 +62,10 @@ set(SourceFiles
     Source/IconMenu.hpp
     Source/LanguageManager.cpp
     Source/LanguageManager.hpp
+    Source/AudioDeviceSettings.h
+    Source/AudioDeviceSettings.cpp
+    Source/MainWindowContent.h
+    Source/MainWindowContent.cpp
     Source/PluginWindow.cpp
     Source/PluginWindow.h
     Source/VoicemeeterRemote.h
@@ -82,9 +86,7 @@ juce_add_binary_data(Resources
     Resources/menu_icon_white.png
     Resources/menu_icon.png
     Resources/Languages/English.json
-    Resources/Languages/TraditionalChinese.json
-    Resources/Languages/SimplifiedChinese.json
-    Resources/Languages/Japanese.json)
+    Resources/Languages/TraditionalChinese.json)
 
 # Required for Linux happiness:
 # See https://forum.juce.com/t/loading-pytorch-model-using-binarydata/39997/2

@@ -142,12 +142,53 @@ Array<LanguageManager::LanguageInfo> LanguageManager::getAvailableLanguages() co
         var data = loadJsonById(langId);
         if (data.isObject())
         {
-            var nameVar = data[Identifier("languageName")];
-            String displayName = nameVar.isVoid() ? langId : nameVar.toString();
-            languages.add({ langId, displayName });
+            var langInfoVar = data[Identifier("languageInfo")];
+            if (langInfoVar.isObject())
+            {
+                var nameVar = langInfoVar[Identifier("languageName")];
+                String displayName = nameVar.isVoid() ? langId : nameVar.toString();
+                languages.add({ langId, displayName });
+            }
         }
     }
 
     return languages;
 }
+
+float LanguageManager::getFontScaling() const
+{
+    if (languageData.isObject())
+    {
+        var langInfoVar = languageData[Identifier("languageInfo")];
+        if (langInfoVar.isObject())
+        {
+            var scaling = langInfoVar[Identifier("fontScaling")];
+            if (!scaling.isVoid())
+            {
+                return static_cast<float>(scaling);
+            }
+        }
+    }
+    // Default to 1.0 if not specified
+    return 1.0f;
+}
+
+String LanguageManager::getLanguageLabel() const
+{
+    if (languageData.isObject())
+    {
+        var langInfoVar = languageData[Identifier("languageInfo")];
+        if (langInfoVar.isObject())
+        {
+            var label = langInfoVar[Identifier("language")];
+            if (!label.isVoid())
+            {
+                return label.toString();
+            }
+        }
+    }
+    // Default to "Language" if not specified
+    return "Language";
+}
+
 
