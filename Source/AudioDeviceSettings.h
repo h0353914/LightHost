@@ -2,7 +2,7 @@
 
 #include "JuceHeader.h"
 
-ApplicationProperties& getAppProperties();
+ApplicationProperties &getAppProperties();
 
 //==============================================================================
 // 顯示縮放設定管理器（ScaleSettingsManager）
@@ -16,20 +16,20 @@ class ScaleSettingsManager
 {
 public:
     /// 取得全域單例實例
-    static ScaleSettingsManager& getInstance();
-    
+    static ScaleSettingsManager &getInstance();
+
     /// 取得當前縮放因子（1.0 = 100%）
     float getScaleFactor() const;
-    
+
     /// 設定新的縮放因子並自動保存
-    void  setScaleFactor(float scale);
-    
+    void setScaleFactor(float scale);
+
     /// 從應用屬性中載入已保存的縮放設定
-    void  loadSettings();
-    
+    void loadSettings();
+
     /// 將縮放設定保存到應用屬性
-    void  saveSettings();
-    
+    void saveSettings();
+
 private:
     /// 當前的縮放因子，預設值為 1.0（100%）
     float scaleFactor = 1.0f;
@@ -44,14 +44,23 @@ private:
 //   • 作為 DeviceSelectorWindow 的內容組件運作
 //   • 視窗關閉按鈕由父視窗管理
 //==============================================================================
-class DeviceSelectorDialog : public Component
+class DeviceSelectorDialog : public Component, private Timer
 {
 public:
+    /// 當縮放因子改變時，通知父視窗重新計算大小
+    std::function<void()> onScaleChanged;
+
     /// 建構函式
     /// @param dm     音訊裝置管理器
     /// @param maxIn  最大輸入聲道數（0 表示隱藏輸入選項）
     /// @param maxOut 最大輸出聲道數（0 表示隱藏輸出選項）
-    DeviceSelectorDialog(AudioDeviceManager& dm, int maxIn, int maxOut);
+    DeviceSelectorDialog(AudioDeviceManager &dm, int maxIn, int maxOut);
+
+    /// 解構函式
+    ~DeviceSelectorDialog() override;
+
+    /// 計時器回調：偵測縮放變化
+    void timerCallback() override;
 
     /// 重新建立 AudioDeviceSelectorComponent 實例並應用縮放
     void updateSelectorComponent();
@@ -63,35 +72,39 @@ public:
     String getCurrentDeviceName() const;
 
     /// 取得此對話框的偏好大小（用於窗口尺寸計算）
-    void getPreferredSize(int& outWidth, int& outHeight) const;
+    /// 會在首次 layout 完成後包含動態量測的實際高度
+    void getPreferredSize(int &outWidth, int &outHeight) const;
 
 private:
     /// 遞迴收集所有 Label 組件的原始字體高度
-    void collectNaturalFonts(Component* comp);
-    
+    void collectNaturalFonts(Component *comp);
+
     /// 遞迴應用縮放因子到所有 Label 組件的字體
-    void applyTotalScale(Component* comp, float totalScale);
+    void applyTotalScale(Component *comp, float totalScale);
 
     /// JUCE 音訊裝置選擇器組件
     std::unique_ptr<AudioDeviceSelectorComponent> sel;
 
     /// 音訊裝置管理器參考
-    AudioDeviceManager&                           mgr;
+    AudioDeviceManager &mgr;
 
     /// 初始時的最大輸入/輸出聲道數
-    int                                           initialMaxIn, initialMaxOut;
+    int initialMaxIn, initialMaxOut;
 
     /// 儲存每個 Label 組件的原始字體高度（用於動態縮放）
-    std::map<Component*, float> naturalFontHeight;
-    
+    std::map<Component *, float> naturalFontHeight;
+
     /// 選擇器的原始列表項高度
-    int   naturalItemHeight = 0;
-    
+    int naturalItemHeight = 0;
+
     /// 是否已準備好應用字體縮放
-    bool  baselinesReady    = false;
-    
+    bool baselinesReady = false;
+
     /// 上次應用的縮放因子
-    float lastScale         = -1.0f;
+    float lastScale = -1.0f;
+
+    /// 動態量測的實際內容高度（px），0 表示尚未量測
+    int computedContentHeight = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DeviceSelectorDialog)
 };
@@ -117,32 +130,31 @@ public:
     /// @param maxIn      最大輸入聲道數
     /// @param maxOut     最大輸出聲道數
     /// @param cb         使用者選擇裝置後調用的回調函式
-    DeviceSelectorWindow(const String& title, AudioDeviceManager& dm,
+    DeviceSelectorWindow(const String &title, AudioDeviceManager &dm,
                          int maxIn, int maxOut,
-                         std::function<void(const String&)> cb);
-    
+                         std::function<void(const String &)> cb);
+
     /// 解構函式
     ~DeviceSelectorWindow() override;
 
     /// 計時器回調函式，監控縮放因子變化
     void timerCallback() override;
-    
+
     /// 關閉視窗並執行清理操作
     void closeWindow();
-    
+
     /// DocumentWindow 虛函數：當用戶點擊視窗關閉按鈕時調用
     void closeButtonPressed() override;
-    
+
     /// 根據當前縮放因子更新視窗大小
-    void  updateWindowSize();
+    void updateWindowSize();
+
 private:
     /// 上次應用的縮放因子，用於偵測變化
     float lastAppliedScale = -1.0f;
-    
-    /// 使用者選擇裝置時調用的回調函式
-    std::function<void(const String&)> onConfirmCallback;
-    
 
+    /// 使用者選擇裝置時調用的回調函式
+    std::function<void(const String &)> onConfirmCallback;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DeviceSelectorWindow)
 };

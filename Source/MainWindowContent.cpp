@@ -54,148 +54,145 @@ inline float getFontScaleFactor()
 class ScaleSettingsContentComponent : public Component
 {
 public:
-    std::unique_ptr<Label> titleLabel;
-    std::unique_ptr<ComboBox> scaleComboBox;
-    std::unique_ptr<TextButton> okButton;
     std::function<void()> onScaleChanged;
-    
+
     ScaleSettingsContentComponent()
     {
-        // Title label - will be scaled in resized()
-        titleLabel = std::make_unique<Label>("title", LanguageManager::getInstance().getText("scaleFactorTitle"));
-        titleLabel->setColour(Label::textColourId, Colours::black);
-        titleLabel->setJustificationType(Justification::centredLeft);
-        addAndMakeVisible(titleLabel.get());
-        
-        // ComboBox for scale selection
-        scaleComboBox = std::make_unique<ComboBox>("scaleCombo");
-        scaleComboBox->addItem("100%", 1);
-        scaleComboBox->addItem("125%", 2);
-        scaleComboBox->addItem("150%", 3);
-        scaleComboBox->addItem("200%", 4);
-        
-        float currentScale = ScaleSettingsManager::getInstance().getScaleFactor();
-        if (fabs(currentScale - 1.0f) < 0.01f) scaleComboBox->setSelectedId(1);
-        else if (fabs(currentScale - 1.25f) < 0.01f) scaleComboBox->setSelectedId(2);
-        else if (fabs(currentScale - 1.5f) < 0.01f) scaleComboBox->setSelectedId(3);
-        else if (fabs(currentScale - 2.0f) < 0.01f) scaleComboBox->setSelectedId(4);
-        else scaleComboBox->setSelectedId(1);
-        
-        scaleComboBox->onChange = [this]
+        label = std::make_unique<Label>("lbl", LanguageManager::getInstance().getText("scaleFactorTitle"));
+        label->setColour(Label::textColourId, Colours::black);
+        label->setJustificationType(Justification::centredLeft);
+        addAndMakeVisible(label.get());
+
+        combo = std::make_unique<ComboBox>("scaleCombo");
+        combo->addItem("100%", 1);
+        combo->addItem("125%", 2);
+        combo->addItem("150%", 3);
+        combo->addItem("200%", 4);
+
+        float cur = ScaleSettingsManager::getInstance().getScaleFactor();
+        if      (fabs(cur - 1.00f) < 0.01f) combo->setSelectedId(1, dontSendNotification);
+        else if (fabs(cur - 1.25f) < 0.01f) combo->setSelectedId(2, dontSendNotification);
+        else if (fabs(cur - 1.50f) < 0.01f) combo->setSelectedId(3, dontSendNotification);
+        else if (fabs(cur - 2.00f) < 0.01f) combo->setSelectedId(4, dontSendNotification);
+        else                                 combo->setSelectedId(1, dontSendNotification);
+
+        combo->onChange = [this]
         {
-            float scales[] = { 1.0f, 1.25f, 1.5f, 2.0f };
-            int selectedId = scaleComboBox->getSelectedId();
-            if (selectedId >= 1 && selectedId <= 4)
+            const float scales[] = { 1.0f, 1.25f, 1.5f, 2.0f };
+            int id = combo->getSelectedId();
+            if (id >= 1 && id <= 4)
             {
-                ScaleSettingsManager::getInstance().setScaleFactor(scales[selectedId - 1]);
+                ScaleSettingsManager::getInstance().setScaleFactor(scales[id - 1]);
                 if (onScaleChanged) onScaleChanged();
             }
         };
-        
-        addAndMakeVisible(scaleComboBox.get());
-        
-        // OK button - matched style from DeviceSelectorDialog
+        addAndMakeVisible(combo.get());
+
         okButton = std::make_unique<TextButton>(LanguageManager::getInstance().getText("OK"));
-        okButton->setColour(TextButton::buttonColourId, Colour::fromRGB(70, 130, 180));
-        okButton->setColour(TextButton::textColourOffId, Colours::white);
+        okButton->setColour(TextButton::buttonColourId,   Colour::fromRGB(70, 130, 180));
+        okButton->setColour(TextButton::textColourOffId,  Colours::white);
         okButton->setColour(TextButton::buttonOnColourId, Colour::fromRGB(40, 100, 150));
-        okButton->setColour(TextButton::textColourOnId, Colours::white);
+        okButton->setColour(TextButton::textColourOnId,   Colours::white);
         okButton->onClick = [this]
         {
             for (auto* p = getParentComponent(); p != nullptr; p = p->getParentComponent())
-            {
                 if (auto* rw = dynamic_cast<ResizableWindow*>(p))
-                {
-                    rw->removeFromDesktop();
-                    delete rw;
-                    break;
-                }
-            }
+                    { rw->removeFromDesktop(); delete rw; break; }
         };
         addAndMakeVisible(okButton.get());
     }
-    
-    void paint(Graphics& g) override
-    {
-        g.fillAll(Colour::fromRGB(236, 236, 236));
-    }
-    
+
+    void paint(Graphics& g) override { g.fillAll(Colour::fromRGB(236, 236, 236)); }
+
     void resized() override
     {
-        auto bounds = getLocalBounds();
-        float scale = ScaleSettingsManager::getInstance().getScaleFactor();
-        
-        // Fixed dimensions from DeviceSelectorDialog
-        int buttonHeight = static_cast<int>(44 * scale);
-        int buttonWidth = static_cast<int>(80 * scale);
-        int padding = static_cast<int>(8 * scale);
-        
-        // Bottom bar area for OK button (aligned bottom-right)
-        auto bar = bounds.removeFromBottom(buttonHeight).reduced(padding, padding);
-        if (okButton)
-            okButton->setBounds(bar.removeFromRight(buttonWidth));
-        
-        // Content area reduction
-        auto contentBounds = bounds.reduced(static_cast<int>(40 * scale));
-        
-        // Title
-        if (titleLabel)
-        {
-            float fontSize = 18.f * scale; // Reduced from 24pt to match dialog style
-            titleLabel->setFont(Font(FontOptions{}.withHeight(fontSize).withStyle("Bold")));
-            auto titleBounds = contentBounds.removeFromTop(static_cast<int>(60 * scale));
-            titleLabel->setBounds(titleBounds);
-        }
-        
-        contentBounds.removeFromTop(static_cast<int>(20 * scale));  // spacing
-        
-        // ComboBox for scale selection
-        if (scaleComboBox)
-        {
-            auto comboBounds = contentBounds.removeFromTop(static_cast<int>(80 * scale));
-            int comboWidth = static_cast<int>(320 * scale);
-            int comboX = (comboBounds.getWidth() - comboWidth) / 2;
-            scaleComboBox->setBounds(comboX, comboBounds.getY(), comboWidth, static_cast<int>(60 * scale));
-        }
+        const float scale = getFontScaleFactor();
+
+        const int pad  = jmax(4, roundToInt(10.0f * scale));
+        const int rowH = jmax(18, roundToInt(26.0f * scale));
+        const int lblH = jmax(14, roundToInt(18.0f * scale));
+        const int gap  = jmax(2, roundToInt(6.0f * scale));
+        const int btnW = jmax(50, roundToInt(72.0f * scale));
+
+        auto b = getLocalBounds().reduced(pad);
+
+        label->setFont(Font(FontOptions{}.withHeight(14.0f * scale)));
+        label->setBounds(b.removeFromTop(lblH));
+        b.removeFromTop(gap);
+
+        combo->setBounds(b.removeFromTop(rowH));
+        b.removeFromTop(gap);
+
+        auto btnRow = b.removeFromTop(rowH);
+        okButton->setBounds(btnRow.removeFromRight(btnW));
     }
+
+private:
+    std::unique_ptr<Label>      label;
+    std::unique_ptr<ComboBox>   combo;
+    std::unique_ptr<TextButton> okButton;
 };
 
-class ScaleSettingsWindow : public ResizableWindow
+class ScaleSettingsWindow : public ResizableWindow, private Timer
 {
 public:
     std::function<void()> onScaleChanged;
-    
+
     ScaleSettingsWindow()
-        : ResizableWindow(LanguageManager::getInstance().getText("scaleSettings"), Colour(0xFFECECEC), true)
+        : ResizableWindow(LanguageManager::getInstance().getText("scaleSettings"),
+                          Colour(0xFFECECEC), true)
     {
-        auto* contentComp = new ScaleSettingsContentComponent();
-        contentComp->onScaleChanged = [this] 
-        { 
+        auto* content = new ScaleSettingsContentComponent();
+        content->onScaleChanged = [this]
+        {
+            updateWindowSize(/*keepCentre*/ true);
             if (onScaleChanged) onScaleChanged();
-            
-            // Re-layout after scale change
-            MessageManager::callAsync([this]
-            {
-                float scale = ScaleSettingsManager::getInstance().getScaleFactor();
-                int width = static_cast<int>(600 * scale);
-                int height = static_cast<int>(500 * scale);
-                setSize(width, height);
-            });
         };
-        
-        setContentOwned(contentComp, true);
+
+        setContentOwned(content, true);
         setUsingNativeTitleBar(true);
         setResizable(false, false);
         setBackgroundColour(Colour::fromRGB(236, 236, 236));
-        
-        // Adjust window size based on scale (align with DeviceSelectorWindow at 100%)
-        float scale = ScaleSettingsManager::getInstance().getScaleFactor();
-        int width = static_cast<int>(600 * scale);
-        int height = static_cast<int>(500 * scale);
-        setSize(width, height);
-        
-        // Position window centered
-        setTopLeftPosition(300, 150);
+
+        updateWindowSize(/*keepCentre*/ false);
+        lastAppliedScale = getFontScaleFactor();
+        startTimerHz(10);
+    }
+
+    ~ScaleSettingsWindow() override
+    {
+        stopTimer();
+    }
+
+private:
+    float lastAppliedScale = -1.0f;
+
+    void timerCallback() override
+    {
+        const float cur = getFontScaleFactor();
+        if (std::abs(cur - lastAppliedScale) < 0.005f)
+            return;
+
+        lastAppliedScale = cur;
+        updateWindowSize(/*keepCentre*/ true);
+    }
+
+    void updateWindowSize(bool keepCentre)
+    {
+        const float scale = getFontScaleFactor();
+        const int width = jmax(280, roundToInt(320.0f * scale));
+        const int height = jmax(120, roundToInt(135.0f * scale));
+
+        if (keepCentre && getWidth() > 0 && getHeight() > 0)
+        {
+            const auto centre = getBounds().getCentre();
+            setSize(width, height);
+            setCentrePosition(centre);
+        }
+        else
+        {
+            centreWithSize(width, height);
+        }
     }
 };
 
@@ -249,21 +246,35 @@ NodeGraphCanvas::Zone NodeGraphCanvas::zoneAt(Point<int> p) const
 Point<int> NodeGraphCanvas::inputPortPos(const PluginNode& n) const
 {
     if (n.type == NodeType::Input)  return { -999, -999 };
-    if (n.type == NodeType::Output) return { getWidth() - getZoneWidth(), n.pos.y + PluginNode::getSideHeight() / 2 };
+    if (n.type == NodeType::Output) { auto b = nodeBounds(n); return { b.getX(), b.getCentreY() }; }
     return n.inputPort();
 }
 
 Point<int> NodeGraphCanvas::outputPortPos(const PluginNode& n) const
 {
     if (n.type == NodeType::Output) return { -999, -999 };
-    if (n.type == NodeType::Input)  return { getZoneWidth(), n.pos.y + PluginNode::getSideHeight() / 2 };
+    if (n.type == NodeType::Input)  { auto b = nodeBounds(n); return { b.getRight(), b.getCentreY() }; }
     return n.outputPort();
 }
 
 Rectangle<int> NodeGraphCanvas::nodeBounds(const PluginNode& n) const
 {
-    if (n.type == NodeType::Input)  return { 0, n.pos.y, getZoneWidth(), PluginNode::getSideHeight() };
-    if (n.type == NodeType::Output) return { getWidth() - getZoneWidth(), n.pos.y, getZoneWidth(), PluginNode::getSideHeight() };
+    if (n.type == NodeType::Input || n.type == NodeType::Output)
+    {
+        // 計算此節點在同類型中的排位（slot），確保 Y 坐標隨 scale 動態更新
+        int slot = 0;
+        for (const auto& nd : nodes)
+        {
+            if (nd.type == n.type)
+            {
+                if (nd.id == n.id) break;
+                ++slot;
+            }
+        }
+        int y = getHeaderHeight() + 6 + slot * (PluginNode::getSideHeight() + 6);
+        int x = (n.type == NodeType::Input) ? 0 : getWidth() - getZoneWidth();
+        return { x, y, getZoneWidth(), PluginNode::getSideHeight() };
+    }
     return n.bounds();
 }
 
@@ -1104,9 +1115,11 @@ void MainWindowContent::showScaleSettings()
     scaleSettingsWnd = wnd;  // SafePointer will auto-null when window is deleted
     wnd->onScaleChanged = [this]
     {
-        // Trigger layout recalculation
+        // 縮放改變後：更新主視窗 layout
         resized();
         repaint();
+        // 通知外層（IconMenu）調整主視窗大小
+        if (onScaleChanged) onScaleChanged();
     };
     wnd->addToDesktop(ComponentPeer::windowIsResizable);
     wnd->setVisible(true);

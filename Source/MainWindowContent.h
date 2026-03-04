@@ -168,6 +168,7 @@ public:
 
     std::function<void()> onManagePlugins;
     std::function<void()> onGraphChanged;
+    std::function<void()> onScaleChanged;  ///< 縮放設定變更時呼叫（供主視窗重算大小）
 
     std::unique_ptr<XmlElement> saveState() const;
     void loadState(const XmlElement& xml);

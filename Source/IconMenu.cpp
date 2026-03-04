@@ -156,6 +156,21 @@ IconMenu::IconMenu() : INDEX_EDIT(1000000), INDEX_BYPASS(2000000), INDEX_DELETE(
             getAppProperties().saveIfNeeded();
         }
     };
+    mainContent->onScaleChanged = [this]
+    {
+        if (mainWindow != nullptr)
+        {
+            const float scale = ScaleSettingsManager::getInstance().getScaleFactor();
+            int w = static_cast<int>(900 * scale);
+            int h = static_cast<int>(560 * scale);
+            if (auto* disp = Desktop::getInstance().getDisplays().getPrimaryDisplay())
+            {
+                w = jmin(w, disp->userArea.getWidth());
+                h = jmin(h, disp->userArea.getHeight() - 50);
+            }
+            mainWindow->setSize(w, h);
+        }
+    };
 
     // Load saved graph state after setting up fixed I/O nodes
     // The loadActivePlugins() call now just setups the I/O nodes in AudioProcessorGraph
