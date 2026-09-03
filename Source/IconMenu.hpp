@@ -56,6 +56,7 @@ public:
     IconMenu();
     ~IconMenu();
     void mouseDown(const MouseEvent&);
+    void mouseDoubleClick(const MouseEvent&);
     static void menuInvocationCallback(int id, IconMenu*);
     void changeListenerCallback(ChangeBroadcaster* changed);
 	static String getKey(String type, PluginDescription plugin);
@@ -96,7 +97,6 @@ private:
     KnownPluginList::SortMethod pluginSortMethod;
     PopupMenu menu;
     std::unique_ptr<PluginDirectoryScanner> scanner;
-    bool menuIconLeftClicked;
     AudioProcessorGraph graph;
     AudioProcessorPlayer player;
     AudioProcessorGraph::Node *inputNode;

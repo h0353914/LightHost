@@ -274,59 +274,56 @@ void IconMenu::timerCallback()
     stopTimer();
     menu.clear();
     menu.addSectionHeader(LanguageManager::getInstance().getText("appName"));
-    if (menuIconLeftClicked) {
-        menu.addItem(1, LanguageManager::getInstance().getText("preferences"));
-        menu.addItem(2, LanguageManager::getInstance().getText("editPlugins"));
-        menu.addSeparator();
-		menu.addSectionHeader(LanguageManager::getInstance().getText("activePlugins"));
-        // Active plugins
-		int time = 0;
-        for (int i = 0; i < activePluginList.getNumTypes(); i++)
-        {
-            PopupMenu options;
-            options.addItem(INDEX_EDIT + i, LanguageManager::getInstance().getText("edit"));
-			std::vector<PluginDescription> timeSorted = getTimeSortedList();
-			String key = getKey("bypass", timeSorted[i]);
-			bool bypass = getAppProperties().getUserSettings()->getBoolValue(key);
-			options.addItem(INDEX_BYPASS + i, LanguageManager::getInstance().getText("bypass"), true, bypass);
-			options.addSeparator();
-			options.addItem(INDEX_MOVE_UP + i, LanguageManager::getInstance().getText("moveUp"), i > 0);
-			options.addItem(INDEX_MOVE_DOWN + i, LanguageManager::getInstance().getText("moveDown"), i < timeSorted.size() - 1);
-			options.addSeparator();
-            options.addItem(INDEX_DELETE + i, LanguageManager::getInstance().getText("delete"));
-			PluginDescription plugin = getNextPluginOlderThanTime(time);
-            menu.addSubMenu(plugin.name, options);
-        }
-        menu.addSeparator();
-		menu.addSectionHeader(LanguageManager::getInstance().getText("availablePlugins"));
-        // All plugins
-        pluginMenuTypes = knownPluginList.getTypes();
-        KnownPluginList::addToMenu(menu, pluginMenuTypes, pluginSortMethod);
-
-        // Language selection - Dynamically generated from available languages
-        menu.addSeparator();
-        PopupMenu languageMenu;
-        int languageMenuItemId = languageMenuItemBase;
-        auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
-        
-        for (const auto& lang : availableLanguages)
-        {
-            bool isCurrent = (lang.id == LanguageManager::getInstance().getCurrentLanguageId());
-            languageMenu.addItem(languageMenuItemId, lang.displayName, true, isCurrent);
-            languageMenuItemId++;
-        }
-        
-        menu.addSubMenu(LanguageManager::getInstance().getText("languageMenuLabel"), languageMenu);
-    }
-    else
+    menu.addItem(1, LanguageManager::getInstance().getText("preferences"));
+    menu.addItem(2, LanguageManager::getInstance().getText("editPlugins"));
+    menu.addItem(4, LanguageManager::getInstance().getText("deletePluginStates"));
+	#if !JUCE_MAC
+    menu.addItem(3, LanguageManager::getInstance().getText("invertIconColor"));
+	#endif
+    menu.addSeparator();
+	menu.addSectionHeader(LanguageManager::getInstance().getText("activePlugins"));
+    // Active plugins
+	int time = 0;
+    for (int i = 0; i < activePluginList.getNumTypes(); i++)
     {
-		menu.addItem(2, LanguageManager::getInstance().getText("deletePluginStates"));
-		#if !JUCE_MAC
-			menu.addItem(3, LanguageManager::getInstance().getText("invertIconColor"));
-		#endif
-		menu.addSeparator();
-        menu.addItem(1, LanguageManager::getInstance().getText("quit"));
+        PopupMenu options;
+        options.addItem(INDEX_EDIT + i, LanguageManager::getInstance().getText("edit"));
+		std::vector<PluginDescription> timeSorted = getTimeSortedList();
+		String key = getKey("bypass", timeSorted[i]);
+		bool bypass = getAppProperties().getUserSettings()->getBoolValue(key);
+		options.addItem(INDEX_BYPASS + i, LanguageManager::getInstance().getText("bypass"), true, bypass);
+		options.addSeparator();
+		options.addItem(INDEX_MOVE_UP + i, LanguageManager::getInstance().getText("moveUp"), i > 0);
+		options.addItem(INDEX_MOVE_DOWN + i, LanguageManager::getInstance().getText("moveDown"), i < timeSorted.size() - 1);
+		options.addSeparator();
+        options.addItem(INDEX_DELETE + i, LanguageManager::getInstance().getText("delete"));
+		PluginDescription plugin = getNextPluginOlderThanTime(time);
+        menu.addSubMenu(plugin.name, options);
     }
+    menu.addSeparator();
+	menu.addSectionHeader(LanguageManager::getInstance().getText("availablePlugins"));
+    // All plugins
+    pluginMenuTypes = knownPluginList.getTypes();
+    KnownPluginList::addToMenu(menu, pluginMenuTypes, pluginSortMethod);
+
+    // Language selection - Dynamically generated from available languages
+    menu.addSeparator();
+    PopupMenu languageMenu;
+    int languageMenuItemId = languageMenuItemBase;
+    auto availableLanguages = LanguageManager::getInstance().getAvailableLanguages();
+
+    for (const auto& lang : availableLanguages)
+    {
+        bool isCurrent = (lang.id == LanguageManager::getInstance().getCurrentLanguageId());
+        languageMenu.addItem(languageMenuItemId, lang.displayName, true, isCurrent);
+        languageMenuItemId++;
+    }
+
+    menu.addSubMenu(LanguageManager::getInstance().getText("languageMenuLabel"), languageMenu);
+
+    menu.addSeparator();
+    menu.addItem(5, LanguageManager::getInstance().getText("quit"));
+
 	#if JUCE_MAC || JUCE_LINUX
     menu.showMenuAsync(PopupMenu::Options().withTargetComponent(this), ModalCallbackFunction::forComponent(menuInvocationCallback, this));
 	#else
@@ -340,32 +337,23 @@ void IconMenu::mouseDown(const MouseEvent& e)
 		Process::setDockIconVisible(true);
 	#endif
     Process::makeForegroundProcess();
-    menuIconLeftClicked = e.mods.isLeftButtonDown();
-    startTimer(50);
+    // 左鍵單擊不跳出選單；選單僅由右鍵觸發，左鍵僅用於雙擊開啟偏好設定
+    if (e.mods.isRightButtonDown())
+        startTimer(50);
+}
+
+void IconMenu::mouseDoubleClick(const MouseEvent& e)
+{
+    if (!e.mods.isLeftButtonDown())
+        return;
+    // Cancel the pending single-click menu and open preferences directly
+    stopTimer();
+    PopupMenu::dismissAllActiveMenus();
+    showAudioSettings();
 }
 
 void IconMenu::menuInvocationCallback(int id, IconMenu* im)
 {
-    // Right click
-    if ((!im->menuIconLeftClicked))
-    {
-		if (id == 1)
-		{
-			im->savePluginStates();
-			return JUCEApplication::getInstance()->quit();
-		}
-		if (id == 2)
-		{
-			im->deletePluginStates();
-			return im->loadActivePlugins();
-		}
-		if (id == 3)
-		{
-			String color = getAppProperties().getUserSettings()->getValue("icon");
-			getAppProperties().getUserSettings()->setValue("icon", color.equalsIgnoreCase("black") ? "white" : "black");
-			return im->setIcon();
-		}
-    }
 	#if JUCE_MAC
     // Click elsewhere
     if (id == 0 && !PluginWindow::containsActiveWindows())
@@ -374,11 +362,30 @@ void IconMenu::menuInvocationCallback(int id, IconMenu* im)
     // Audio settings
     if (id == 1)
         im->showAudioSettings();
-    // Reload
+    // Edit plugins
     if (id == 2)
         im->reloadPlugins();
+    // Invert icon color
+    if (id == 3)
+    {
+        String color = getAppProperties().getUserSettings()->getValue("icon");
+        getAppProperties().getUserSettings()->setValue("icon", color.equalsIgnoreCase("black") ? "white" : "black");
+        im->setIcon();
+    }
+    // Delete plugin states
+    if (id == 4)
+    {
+        im->deletePluginStates();
+        im->loadActivePlugins();
+    }
+    // Quit
+    if (id == 5)
+    {
+        im->savePluginStates();
+        return JUCEApplication::getInstance()->quit();
+    }
     // Plugins
-    if (id > 2)
+    if (id > 5)
     {
         // Language selection - Handle dynamic language menu items.
         if (id >= languageMenuItemBase)
