@@ -177,6 +177,8 @@ void IconMenu::loadActivePlugins()
         PluginDescription plugin = getNextPluginOlderThanTime(pluginTime);
         String errorMessage;
         std::unique_ptr<AudioPluginInstance> instance = formatManager.createPluginInstance(plugin, graph.getSampleRate(), graph.getBlockSize(), errorMessage);
+        if (instance == nullptr)
+        	continue;
 		String pluginUid = getKey("state", plugin);
         String savedPluginState = getAppProperties().getUserSettings()->getValue(pluginUid);
         MemoryBlock savedPluginBinary;
